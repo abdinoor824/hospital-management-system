@@ -1,14 +1,14 @@
 "use client";
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
 
-export default function PaymentSuccessPage() {
+function PaymentSuccessContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const { token, loading: authLoading } = useAuth();
-  const [status, setStatus] = useState("verifying"); // verifying | success | error
+  const [status, setStatus] = useState("verifying");
   const [message, setMessage] = useState("");
 
   const sessionId = searchParams.get("session_id");
@@ -45,9 +45,7 @@ export default function PaymentSuccessPage() {
     <div className="min-h-screen grid place-items-center bg-slate-50 px-4">
       <div className="max-w-sm w-full bg-white rounded-[22px] border border-slate-100 p-8 text-center">
         {status === "verifying" && (
-          <>
-            <p className="text-slate-500 text-sm">Verifying your payment...</p>
-          </>
+          <p className="text-slate-500 text-sm">Verifying your payment...</p>
         )}
         {status === "success" && (
           <>
@@ -77,5 +75,13 @@ export default function PaymentSuccessPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function PaymentSuccessPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen grid place-items-center text-slate-400 text-sm">Loading...</div>}>
+      <PaymentSuccessContent />
+    </Suspense>
   );
 }
