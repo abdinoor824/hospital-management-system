@@ -45,6 +45,9 @@ export const api = {
   myAppointments: (token) => request("/appointments/mine", { token }),
   updateAppointmentStatus: (id, status, token) =>
     request(`/appointments/${id}`, { method: "PATCH", body: { status }, token }),
+    cancelMyAppointment: (id, token) => request(`/appointments/${id}/cancel`, { method: "PATCH", token }),
+  rescheduleMyAppointment: (id, payload, token) =>
+    request(`/appointments/${id}/reschedule`, { method: "PATCH", body: payload, token }),
 
   myRecords: (token) => request("/records/mine", { token }),
   createRecord: (payload, token) => request("/records", { method: "POST", body: payload, token }),
@@ -55,6 +58,11 @@ export const api = {
   adminListDoctors: (token) => request("/admin/doctors", { token }),
   adminListPatients: (token) => request("/admin/patients", { token }),
   adminListAppointments: (token) => request("/admin/appointments", { token }),
+    adminUpdateDoctor: (id, payload, token) => request(`/admin/doctors/${id}`, { method: "PUT", body: payload, token }),
+  adminDeleteDoctor: (id, token) => request(`/admin/doctors/${id}`, { method: "DELETE", token }),
+  adminUpdatePatient: (id, payload, token) => request(`/admin/patients/${id}`, { method: "PUT", body: payload, token }),
+  adminDeletePatient: (id, token) => request(`/admin/patients/${id}`, { method: "DELETE", token }),
+  adminToggleUserActive: (userId, token) => request(`/admin/users/${userId}/toggle-active`, { method: "PATCH", token }),
 
   recordCashPayment: (payload, token) => request("/payments/cash", { method: "POST", body: payload, token }),
   paymentForAppointment: (appointmentId, token) =>

@@ -2,7 +2,6 @@ const Appointment = require("../models/Appointment");
 const PatientProfile = require("../models/PatientProfile");
 const DoctorProfile = require("../models/DoctorProfile");
 
-// POST /api/appointments — patient books an appointment
 async function createAppointment(req, res) {
   try {
     const { doctorId, date, time, reason } = req.body;
@@ -30,7 +29,6 @@ async function createAppointment(req, res) {
   }
 }
 
-// GET /api/appointments/mine — works for both patient and doctor, based on role
 async function getMyAppointments(req, res) {
   try {
     let filter = {};
@@ -56,7 +54,6 @@ async function getMyAppointments(req, res) {
   }
 }
 
-// PATCH /api/appointments/:id — update status (cancel, confirm, complete)
 async function updateAppointmentStatus(req, res) {
   try {
     const { status } = req.body;
@@ -65,12 +62,19 @@ async function updateAppointmentStatus(req, res) {
       return res.status(400).json({ message: "Invalid status" });
     }
 
-    const appointment = await Appointment.findByIdAndUpdate(
-      req.params.id,
-      { status },
-      { new: true }
-    );
+    const appointment = await Appointment.findById(req.params.id);
     if (!appointment) return res.status(404).json({ message: "Appointment not found" });
+
+    if (status === "confirmed") {
+      const Payment = require("../models/Payment");
+      const payment = await Payment.findOne({ appointment: appointment._id, status: "paid" });
+      if (!payment) {
+        return res.status(400).json({ message: "Cannot confirm: patient has not paid for this appointment yet" });
+      }
+    }
+
+    appointment.status = status;
+    await appointment.save();
 
     res.json({ appointment });
   } catch (err) {
@@ -78,4 +82,67 @@ async function updateAppointmentStatus(req, res) {
   }
 }
 
-module.exports = { createAppointment, getMyAppointments, updateAppointmentStatus };
+// PATCH /api/appointments/:id/cancel — patient cancels their own pending appointment
+async function cancelMyAppointment(req, res) {
+  try {
+    const patientProfile = await PatientProfile.findOne({ user: req.user._id });
+    if (!patientProfile) return res.status(404).json({ message: "Patient profile not found" });
+
+    const appointment = await Appointment.findById(req.params.id);
+    if (!appointment) return res.status(404).json({ message: "Appointment not found" });
+
+    if (String(appointment.patient) !== String(patientProfile._id)) {
+      return res.status(403).json({ message: "This appointment does not belong to you" });
+    }
+    if (appointment.status !== "pending") {
+      return res.status(400).json({ message: "Only pending appointments can be cancelled this way. Contact the doctor/admin for confirmed appointments." });
+    }
+
+    appointment.status = "cancelled";
+    await appointment.save();
+
+    res.json({ appointment });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+}
+
+// PATCH /api/appointments/:id/reschedule — patient edits date/time/reason while still pending
+async function rescheduleMyAppointment(req, res) {
+  try {
+    const { date, time, reason } = req.body;
+    if (!date || !time) {
+      return res.status(400).json({ message: "date and time are required" });
+    }
+
+    const patientProfile = await PatientProfile.findOne({ user: req.user._id });
+    if (!patientProfile) return res.status(404).json({ message: "Patient profile not found" });
+
+    const appointment = await Appointment.findById(req.params.id);
+    if (!appointment) return res.status(404).json({ message: "Appointment not found" });
+
+    if (String(appointment.patient) !== String(patientProfile._id)) {
+      return res.status(403).json({ message: "This appointment does not belong to you" });
+    }
+    if (appointment.status !== "pending") {
+      return res.status(400).json({ message: "Only pending appointments can be rescheduled." });
+    }
+
+    appointment.date = date;
+    appointment.time = time;
+    if (reason !== undefined) appointment.reason = reason;
+    await appointment.save();
+
+    res.json({ appointment });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+}
+
+module.exports = {
+  createAppointment,
+  getMyAppointments,
+  updateAppointmentStatus,
+  cancelMyAppointment,
+  rescheduleMyAppointment,
+};

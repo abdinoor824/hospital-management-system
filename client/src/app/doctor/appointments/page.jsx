@@ -69,15 +69,26 @@ function RecordForm({ appointment, token, onDone }) {
 export default function DoctorAppointmentsPage() {
   const { token } = useAuth();
   const [appointments, setAppointments] = useState([]);
+  const [payments, setPayments] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [writingFor, setWritingFor] = useState(null);
+  const [busyId, setBusyId] = useState(null);
 
   function loadAppointments() {
     setLoading(true);
     api
       .myAppointments(token)
-      .then((res) => setAppointments(res.appointments))
+      .then(async (res) => {
+        setAppointments(res.appointments);
+        const entries = await Promise.all(
+          res.appointments.map(async (appt) => {
+            const p = await api.paymentForAppointment(appt._id, token).catch(() => ({ payment: null }));
+            return [appt._id, p.payment];
+          })
+        );
+        setPayments(Object.fromEntries(entries));
+      })
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   }
@@ -86,12 +97,20 @@ export default function DoctorAppointmentsPage() {
     if (token) loadAppointments();
   }, [token]);
 
+  function isPaid(apptId) {
+    return payments[apptId]?.status === "paid";
+  }
+
   async function handleStatusChange(id, status) {
+    setError("");
+    setBusyId(id);
     try {
       await api.updateAppointmentStatus(id, status, token);
       loadAppointments();
     } catch (err) {
       setError(err.message);
+    } finally {
+      setBusyId(null);
     }
   }
 
@@ -108,62 +127,76 @@ export default function DoctorAppointmentsPage() {
           <p className="text-slate-400 text-sm">No appointments assigned yet.</p>
         ) : (
           <div className="flex flex-col gap-3 max-w-2xl">
-            {appointments.map((appt) => (
-              <div key={appt._id} className="rounded-[18px] border border-slate-100 bg-white px-5 py-4">
-                <div className="flex items-center justify-between gap-4">
-                  <div>
-                    <p className="text-[14.5px] font-semibold text-slate-900">
-                      {appt.patient?.user?.name || "Unknown patient"}
-                    </p>
-                    <p className="text-[12.5px] text-slate-400">
-                      {new Date(appt.date).toLocaleDateString()} at {appt.time}
-                    </p>
-                    {appt.reason && <p className="text-[12.5px] text-slate-500 mt-1">{appt.reason}</p>}
+            {appointments.map((appt) => {
+              const paid = isPaid(appt._id);
+              return (
+                <div key={appt._id} className="rounded-[18px] border border-slate-100 bg-white px-5 py-4">
+                  <div className="flex items-center justify-between gap-4 flex-wrap">
+                    <div>
+                      <p className="text-[14.5px] font-semibold text-slate-900">
+                        {appt.patient?.user?.name || "Unknown patient"}
+                      </p>
+                      <p className="text-[12.5px] text-slate-400">
+                        {new Date(appt.date).toLocaleDateString()} at {appt.time}
+                      </p>
+                      {appt.reason && <p className="text-[12.5px] text-slate-500 mt-1">{appt.reason}</p>}
+                    </div>
+                    <div className="flex flex-col items-end gap-1.5 shrink-0">
+                      <span className={`text-[11.5px] font-semibold px-3 py-1 rounded-full capitalize ${STATUS_STYLES[appt.status]}`}>
+                        {appt.status}
+                      </span>
+                      <span className={`text-[11px] font-medium px-2.5 py-0.5 rounded-full ${paid ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"}`}>
+                        {paid ? "Paid" : "Awaiting payment"}
+                      </span>
+                    </div>
                   </div>
-                  <span className={`text-[11.5px] font-semibold px-3 py-1 rounded-full capitalize shrink-0 ${STATUS_STYLES[appt.status]}`}>
-                    {appt.status}
-                  </span>
-                </div>
 
-                <div className="flex gap-2 mt-3 flex-wrap">
-                  {appt.status === "pending" && (
-                    <>
+                  <div className="flex gap-2 mt-3 flex-wrap items-center">
+                    {appt.status === "pending" && (
+                      <>
+                        <button
+                          onClick={() => handleStatusChange(appt._id, "confirmed")}
+                          disabled={!paid || busyId === appt._id}
+                          title={!paid ? "Patient must pay before you can confirm" : ""}
+                          className="text-[12.5px] font-medium bg-indigo-50 text-indigo-600 rounded-lg px-3 py-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          Confirm
+                        </button>
+                        <button
+                          onClick={() => handleStatusChange(appt._id, "cancelled")}
+                          disabled={busyId === appt._id}
+                          className="text-[12.5px] font-medium bg-red-50 text-red-600 rounded-lg px-3 py-1.5 disabled:opacity-60"
+                        >
+                          Cancel
+                        </button>
+                        {!paid && (
+                          <span className="text-[11.5px] text-amber-600">Waiting for patient payment</span>
+                        )}
+                      </>
+                    )}
+                    {appt.status === "confirmed" && (
                       <button
-                        onClick={() => handleStatusChange(appt._id, "confirmed")}
-                        className="text-[12.5px] font-medium bg-indigo-50 text-indigo-600 rounded-lg px-3 py-1.5"
+                        onClick={() => setWritingFor(writingFor === appt._id ? null : appt._id)}
+                        className="text-[12.5px] font-medium bg-emerald-50 text-emerald-600 rounded-lg px-3 py-1.5"
                       >
-                        Confirm
+                        {writingFor === appt._id ? "Cancel" : "Write record & complete"}
                       </button>
-                      <button
-                        onClick={() => handleStatusChange(appt._id, "cancelled")}
-                        className="text-[12.5px] font-medium bg-red-50 text-red-600 rounded-lg px-3 py-1.5"
-                      >
-                        Cancel
-                      </button>
-                    </>
-                  )}
-                  {appt.status === "confirmed" && (
-                    <button
-                      onClick={() => setWritingFor(writingFor === appt._id ? null : appt._id)}
-                      className="text-[12.5px] font-medium bg-emerald-50 text-emerald-600 rounded-lg px-3 py-1.5"
-                    >
-                      {writingFor === appt._id ? "Cancel" : "Write record & complete"}
-                    </button>
+                    )}
+                  </div>
+
+                  {writingFor === appt._id && (
+                    <RecordForm
+                      appointment={appt}
+                      token={token}
+                      onDone={() => {
+                        setWritingFor(null);
+                        loadAppointments();
+                      }}
+                    />
                   )}
                 </div>
-
-                {writingFor === appt._id && (
-                  <RecordForm
-                    appointment={appt}
-                    token={token}
-                    onDone={() => {
-                      setWritingFor(null);
-                      loadAppointments();
-                    }}
-                  />
-                )}
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </DashboardLayout>

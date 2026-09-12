@@ -3,7 +3,6 @@ const DoctorProfile = require("../models/DoctorProfile");
 const PatientProfile = require("../models/PatientProfile");
 const Appointment = require("../models/Appointment");
 
-// POST /api/admin/users — admin creates a doctor or admin account
 async function createUser(req, res) {
   try {
     const { name, email, password, phone, role, specialization, qualifications, consultationFee } = req.body;
@@ -40,7 +39,6 @@ async function createUser(req, res) {
   }
 }
 
-// GET /api/admin/doctors
 async function listDoctors(req, res) {
   try {
     const doctors = await DoctorProfile.find().populate("user", "name email phone isActive").sort({ createdAt: -1 });
@@ -50,7 +48,6 @@ async function listDoctors(req, res) {
   }
 }
 
-// GET /api/admin/patients
 async function listPatients(req, res) {
   try {
     const patients = await PatientProfile.find().populate("user", "name email phone isActive").sort({ createdAt: -1 });
@@ -60,7 +57,6 @@ async function listPatients(req, res) {
   }
 }
 
-// GET /api/admin/appointments — every appointment in the system
 async function listAllAppointments(req, res) {
   try {
     const appointments = await Appointment.find()
@@ -73,4 +69,116 @@ async function listAllAppointments(req, res) {
   }
 }
 
-module.exports = { createUser, listDoctors, listPatients, listAllAppointments };
+// PUT /api/admin/doctors/:id — edit a doctor's profile + linked user info
+async function updateDoctor(req, res) {
+  try {
+    const { name, phone, specialization, qualifications, consultationFee } = req.body;
+
+    const doctorProfile = await DoctorProfile.findById(req.params.id);
+    if (!doctorProfile) return res.status(404).json({ message: "Doctor not found" });
+
+    if (specialization !== undefined) doctorProfile.specialization = specialization;
+    if (qualifications !== undefined) doctorProfile.qualifications = qualifications;
+    if (consultationFee !== undefined) doctorProfile.consultationFee = consultationFee;
+    await doctorProfile.save();
+
+    const user = await User.findById(doctorProfile.user);
+    if (user) {
+      if (name !== undefined) user.name = name;
+      if (phone !== undefined) user.phone = phone;
+      await user.save();
+    }
+
+    const updated = await DoctorProfile.findById(req.params.id).populate("user", "name email phone isActive");
+    res.json({ doctor: updated });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+}
+
+// DELETE /api/admin/doctors/:id — remove a doctor entirely (profile + user account)
+async function deleteDoctor(req, res) {
+  try {
+    const doctorProfile = await DoctorProfile.findById(req.params.id);
+    if (!doctorProfile) return res.status(404).json({ message: "Doctor not found" });
+
+    await User.findByIdAndDelete(doctorProfile.user);
+    await doctorProfile.deleteOne();
+
+    res.json({ message: "Doctor deleted" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+}
+
+// PUT /api/admin/patients/:id — edit a patient's profile + linked user info
+async function updatePatient(req, res) {
+  try {
+    const { name, phone, dob, gender, bloodGroup, address, emergencyContact } = req.body;
+
+    const patientProfile = await PatientProfile.findById(req.params.id);
+    if (!patientProfile) return res.status(404).json({ message: "Patient not found" });
+
+    if (dob !== undefined) patientProfile.dob = dob;
+    if (gender !== undefined) patientProfile.gender = gender;
+    if (bloodGroup !== undefined) patientProfile.bloodGroup = bloodGroup;
+    if (address !== undefined) patientProfile.address = address;
+    if (emergencyContact !== undefined) patientProfile.emergencyContact = emergencyContact;
+    await patientProfile.save();
+
+    const user = await User.findById(patientProfile.user);
+    if (user) {
+      if (name !== undefined) user.name = name;
+      if (phone !== undefined) user.phone = phone;
+      await user.save();
+    }
+
+    const updated = await PatientProfile.findById(req.params.id).populate("user", "name email phone isActive");
+    res.json({ patient: updated });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+}
+
+// DELETE /api/admin/patients/:id — remove a patient entirely (profile + user account)
+async function deletePatient(req, res) {
+  try {
+    const patientProfile = await PatientProfile.findById(req.params.id);
+    if (!patientProfile) return res.status(404).json({ message: "Patient not found" });
+
+    await User.findByIdAndDelete(patientProfile.user);
+    await patientProfile.deleteOne();
+
+    res.json({ message: "Patient deleted" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+}
+
+// PATCH /api/admin/users/:userId/toggle-active — suspend/reactivate any account
+async function toggleUserActive(req, res) {
+  try {
+    const user = await User.findById(req.params.userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+    if (user.role === "admin") return res.status(403).json({ message: "Cannot deactivate an admin account" });
+
+    user.isActive = !user.isActive;
+    await user.save();
+
+    res.json({ isActive: user.isActive });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+}
+
+module.exports = {
+  createUser,
+  listDoctors,
+  listPatients,
+  listAllAppointments,
+  updateDoctor,
+  deleteDoctor,
+  updatePatient,
+  deletePatient,
+  toggleUserActive,
+};
