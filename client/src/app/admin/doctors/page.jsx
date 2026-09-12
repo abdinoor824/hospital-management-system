@@ -5,8 +5,7 @@ import DashboardLayout from "@/components/DashboardLayout";
 import { useAuth } from "@/context/AuthContext";
 import { api } from "@/lib/api";
 
-const EMPTY_FORM = { name: "", email: "", password: "", phone: "", specialization: "", qualifications: "" };
-
+const EMPTY_FORM = { name: "", email: "", password: "", phone: "", specialization: "", qualifications: "", consultationFee: "" };
 export default function AdminDoctorsPage() {
   const { token } = useAuth();
   const [doctors, setDoctors] = useState([]);
@@ -58,11 +57,15 @@ export default function AdminDoctorsPage() {
               <p className="text-slate-400 text-sm">No doctors yet. Add one from the form.</p>
             ) : (
               <div className="flex flex-col gap-3">
-                {doctors.map((d) => (
+               
+                                {doctors.map((d) => (
                   <div key={d._id} className="rounded-[18px] border border-slate-100 bg-white px-5 py-4">
                     <p className="text-[14.5px] font-semibold text-slate-900">{d.user?.name}</p>
                     <p className="text-[12.5px] text-slate-400">{d.user?.email}</p>
                     <p className="text-[12.5px] text-indigo-600 mt-1">{d.specialization}</p>
+                    <p className="text-[12.5px] text-slate-500 mt-1">
+                      {d.consultationFee > 0 ? `KES ${d.consultationFee}` : "No fee set"}
+                    </p>
                   </div>
                 ))}
               </div>
@@ -115,6 +118,14 @@ export default function AdminDoctorsPage() {
                 className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm"
                 value={form.qualifications}
                 onChange={(e) => setForm({ ...form, qualifications: e.target.value })}
+              />
+                            <input
+                type="number"
+                min="0"
+                placeholder="Consultation fee (KES)"
+                className="rounded-lg border border-slate-200 px-3 py-2.5 text-sm"
+                value={form.consultationFee}
+                onChange={(e) => setForm({ ...form, consultationFee: e.target.value })}
               />
               <button
                 type="submit"

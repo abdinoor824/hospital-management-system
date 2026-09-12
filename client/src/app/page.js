@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { api, SERVER_URL } from "@/lib/api";
+import { api, getImageUrl } from "@/lib/api";
 
 const FILTERS = ["All", "Available Today", "Lowest Fee", "Most Experienced", "Top Rated"];
 const TODAY_ABBR = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][new Date().getDay()];
@@ -138,7 +138,7 @@ export default function HomePage() {
               className="h-10 w-10 rounded-full overflow-hidden bg-indigo-100 grid place-items-center text-[13px] font-semibold text-indigo-600"
             >
               {user.profilePicture ? (
-                <img src={`${SERVER_URL}${user.profilePicture}`} alt={user.name} className="h-full w-full object-cover" />
+                <img src={getImageUrl(user.profilePicture)} alt={user.name} className="h-full w-full object-cover" />
               ) : (
                 user.name?.split(" ").map((p) => p[0]).join("").slice(0, 2)
               )}
@@ -202,42 +202,47 @@ export default function HomePage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
             {filtered.map((d) => (
-              <div key={d._id} className="bg-white rounded-[24px] border border-slate-100 overflow-hidden flex flex-col shadow-sm">
-                <div className="relative h-40 bg-slate-100">
-                  {d.user?.profilePicture ? (
-                    <img
-                      src={`${SERVER_URL}${d.user.profilePicture}`}
-                      alt={d.user.name}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <div className="h-full w-full grid place-items-center bg-indigo-50 text-indigo-400 text-[40px] font-bold">
-                      {d.user?.name?.split(" ").map((p) => p[0]).join("").slice(0, 2)}
+              
+                          <div key={d._id} className="bg-white rounded-[24px] border border-slate-100 overflow-hidden flex flex-col shadow-sm">
+                <a href={`/doctors/${d._id}`} className="block">
+                  <div className="relative h-40 bg-slate-100">
+                    {d.user?.profilePicture ? (
+                      <img
+                        src={getImageUrl(d.user.profilePicture)}
+                        alt={d.user.name}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="h-full w-full grid place-items-center bg-indigo-50 text-indigo-400 text-[40px] font-bold">
+                        {d.user?.name?.split(" ").map((p) => p[0]).join("").slice(0, 2)}
+                      </div>
+                    )}
+                    {d._availableToday && (
+                      <span className="absolute top-2.5 right-2.5 text-[10.5px] font-semibold bg-emerald-500 text-white px-2.5 py-1 rounded-full">
+                        Available Today
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="p-4 pb-0">
+                    <p className="text-[15px] font-bold text-slate-900 hover:text-indigo-600">Dr. {d.user?.name}</p>
+                    <p className="text-[13px] text-indigo-600 font-medium">{d.specialization}</p>
+
+                    <div className="flex items-center gap-2 mt-2 text-[12px] text-slate-500">
+                      <span>🎓 {d._experience} years experience</span>
+                      <span>·</span>
+                      <span className="text-amber-500 font-semibold">★ {d._rating}</span>
                     </div>
-                  )}
-                  {d._availableToday && (
-                    <span className="absolute top-2.5 right-2.5 text-[10.5px] font-semibold bg-emerald-500 text-white px-2.5 py-1 rounded-full">
-                      Available Today
-                    </span>
-                  )}
-                </div>
 
-                <div className="p-4 flex flex-col flex-1">
-                  <p className="text-[15px] font-bold text-slate-900">Dr. {d.user?.name}</p>
-                  <p className="text-[13px] text-indigo-600 font-medium">{d.specialization}</p>
-
-                  <div className="flex items-center gap-2 mt-2 text-[12px] text-slate-500">
-                    <span>🎓 {d._experience} years experience</span>
-                    <span>·</span>
-                    <span className="text-amber-500 font-semibold">★ {d._rating}</span>
+                    <div className="flex gap-1.5 mt-2.5 flex-wrap">
+                      <span className="text-[11px] font-medium bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full">Online</span>
+                      <span className="text-[11px] font-medium bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full">In-Person</span>
+                    </div>
                   </div>
+                </a>
 
-                  <div className="flex gap-1.5 mt-2.5 flex-wrap">
-                    <span className="text-[11px] font-medium bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full">Online</span>
-                    <span className="text-[11px] font-medium bg-slate-100 text-slate-500 px-2.5 py-1 rounded-full">In-Person</span>
-                  </div>
-
-                  <div className="flex items-center justify-between mt-4 pt-3 border-t border-slate-100">
+                <div className="p-4 pt-3 flex flex-col flex-1">
+                  <div className="flex items-center justify-between pt-3 border-t border-slate-100 mt-auto">
                     <div>
                       <p className="text-[10.5px] text-slate-400">Starting at</p>
                       <p className="text-[15px] font-bold text-slate-900">
@@ -252,7 +257,7 @@ export default function HomePage() {
                     </button>
                   </div>
                 </div>
-              </div>
+              </div> 
             ))}
           </div>
         )}

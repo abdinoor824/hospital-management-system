@@ -14,4 +14,19 @@ async function listPublicDoctors(req, res) {
   }
 }
 
-module.exports = { listPublicDoctors };
+// GET /api/public/doctors/:id — single doctor's public profile page
+async function getPublicDoctorById(req, res) {
+  try {
+    const doctor = await DoctorProfile.findById(req.params.id)
+      .populate("user", "name profilePicture")
+      .select("specialization qualifications consultationFee availability user");
+
+    if (!doctor) return res.status(404).json({ message: "Doctor not found" });
+
+    res.json({ doctor });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+}
+
+module.exports = { listPublicDoctors, getPublicDoctorById };

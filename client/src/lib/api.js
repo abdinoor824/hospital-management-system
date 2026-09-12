@@ -1,6 +1,12 @@
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api";
 export const SERVER_URL = API_URL.replace("/api", "");
 
+
+
+export function getImageUrl(path) {
+  if (!path) return "";
+  return path.startsWith("http") ? path : `${SERVER_URL}${path}`;
+}
 async function request(path, { method = "GET", body, token, isFormData } = {}) {
   const res = await fetch(`${API_URL}${path}`, {
     method,
@@ -32,6 +38,7 @@ export const api = {
   myDoctorProfile: (token) => request("/doctors/me", { token }),
   updateMyDoctorProfile: (payload, token) => request("/doctors/me", { method: "PUT", body: payload, token }),
   publicDoctors: () => request("/public/doctors"),
+    publicDoctorById: (id) => request(`/public/doctors/${id}`),
 
   bookAppointment: (payload, token) =>
     request("/appointments", { method: "POST", body: payload, token }),

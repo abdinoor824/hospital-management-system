@@ -2,7 +2,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import { SERVER_URL } from "@/lib/api";
+import { getImageUrl } from "@/lib/api";
+
 
 const NAV_BY_ROLE = {
   admin: [
@@ -132,9 +133,10 @@ export default function DashboardLayout({ children, active }) {
           </div>
           <div className="flex items-center gap-2.5">
            
-           <a href="/profile" className="h-9 w-9 rounded-full overflow-hidden bg-indigo-100 grid place-items-center text-[12px] font-semibold text-indigo-600">
+
+<a href="/profile" className="h-9 w-9 rounded-full overflow-hidden bg-indigo-100 grid place-items-center text-[12px] font-semibold text-indigo-600">
   {user?.profilePicture ? (
-    <img src={`${SERVER_URL}${user.profilePicture}`} alt={user.name} className="h-full w-full object-cover" />
+    <img src={getImageUrl(user.profilePicture)} alt={user.name} className="h-full w-full object-cover" />
   ) : (
     user?.name?.split(" ").map((p) => p[0]).join("").slice(0, 2)
   )}

@@ -1,8 +1,9 @@
 const express = require("express");
-const { listPublicDoctors } = require("../controllers/publicController");
+const { listPublicDoctors, getPublicDoctorById } = require("../controllers/publicController");
 
 const router = express.Router();
 
 router.get("/doctors", listPublicDoctors);
+router.get("/doctors/:id", getPublicDoctorById);
 
 module.exports = router;

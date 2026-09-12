@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import DashboardLayout from "@/components/DashboardLayout";
 import { useAuth } from "@/context/AuthContext";
-import { api, SERVER_URL } from "@/lib/api";
+import { api, getImageUrl } from "@/lib/api";
 
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -139,7 +139,7 @@ export default function ProfilePage() {
           <div className="bg-white rounded-[22px] border border-slate-100 p-5 flex items-center gap-4">
             {user.profilePicture ? (
               <img
-                src={`${SERVER_URL}${user.profilePicture}`}
+                src={getImageUrl(user.profilePicture)}
                 alt={user.name}
                 className="h-16 w-16 rounded-full object-cover"
               />

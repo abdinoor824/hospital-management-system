@@ -128,11 +128,12 @@ async function changePassword(req, res) {
   }
 }
 
+
 async function uploadProfilePicture(req, res) {
   try {
     if (!req.file) return res.status(400).json({ message: "No file uploaded" });
 
-    req.user.profilePicture = `/uploads/${req.file.filename}`;
+    req.user.profilePicture = req.file.path; 
     await req.user.save();
 
     res.json({ user: sanitize(req.user) });
@@ -140,5 +141,4 @@ async function uploadProfilePicture(req, res) {
     res.status(500).json({ message: err.message });
   }
 }
-
 module.exports = { register, login, googleLogin, me, updateMe, changePassword, uploadProfilePicture };
