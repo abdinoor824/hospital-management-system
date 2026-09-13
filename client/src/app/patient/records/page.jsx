@@ -44,6 +44,23 @@ export default function PatientRecordsPage() {
                 {r.diagnosis && <p className="text-[13px] text-slate-700"><span className="font-medium">Diagnosis:</span> {r.diagnosis}</p>}
                 {r.prescription && <p className="text-[13px] text-slate-700 mt-1"><span className="font-medium">Prescription:</span> {r.prescription}</p>}
                 {r.notes && <p className="text-[13px] text-slate-500 mt-1">{r.notes}</p>}
+
+                {r.attachments?.length > 0 && (
+                  <div className="flex flex-col gap-1.5 mt-3 pt-3 border-t border-slate-100">
+                    <p className="text-[11.5px] font-semibold uppercase tracking-wide text-slate-400">Attachments</p>
+                    {r.attachments.map((a, i) => (
+                      <a
+                        key={i}
+                        href={a.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[12.5px] text-indigo-600 hover:underline flex items-center gap-1.5"
+                      >
+                        📎 {a.filename}
+                      </a>
+                    ))}
+                  </div>
+                )}
               </div>
             ))}
           </div>

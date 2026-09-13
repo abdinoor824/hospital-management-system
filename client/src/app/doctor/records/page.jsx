@@ -10,15 +10,36 @@ export default function DoctorRecordsPage() {
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [uploadingId, setUploadingId] = useState(null);
 
-  useEffect(() => {
-    if (!token) return;
+  function loadRecords() {
+    setLoading(true);
     api
       .recordsByDoctor(token)
       .then((res) => setRecords(res.records))
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
+  }
+
+  useEffect(() => {
+    if (token) loadRecords();
   }, [token]);
+
+  async function handleFileUpload(recordId, file) {
+    if (!file) return;
+    setError("");
+    setUploadingId(recordId);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      await api.addRecordAttachment(recordId, formData, token);
+      loadRecords();
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setUploadingId(null);
+    }
+  }
 
   return (
     <RequireRole role="doctor">
@@ -44,6 +65,36 @@ export default function DoctorRecordsPage() {
                 {r.diagnosis && <p className="text-[13px] text-slate-700"><span className="font-medium">Diagnosis:</span> {r.diagnosis}</p>}
                 {r.prescription && <p className="text-[13px] text-slate-700 mt-1"><span className="font-medium">Prescription:</span> {r.prescription}</p>}
                 {r.notes && <p className="text-[13px] text-slate-500 mt-1">{r.notes}</p>}
+
+                {r.attachments?.length > 0 && (
+                  <div className="flex flex-col gap-1.5 mt-3">
+                    <p className="text-[11.5px] font-semibold uppercase tracking-wide text-slate-400">Attachments</p>
+                    {r.attachments.map((a, i) => (
+                      <a
+                        key={i}
+                        href={a.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[12.5px] text-indigo-600 hover:underline flex items-center gap-1.5"
+                      >
+                        📎 {a.filename}
+                      </a>
+                    ))}
+                  </div>
+                )}
+
+                <div className="mt-3 pt-3 border-t border-slate-100">
+                  <label className="inline-block cursor-pointer text-[12px] font-semibold bg-slate-100 text-slate-600 rounded-lg px-3 py-1.5">
+                    {uploadingId === r._id ? "Uploading..." : "+ Add attachment (image or PDF)"}
+                    <input
+                      type="file"
+                      accept="image/*,application/pdf"
+                      className="hidden"
+                      disabled={uploadingId === r._id}
+                      onChange={(e) => handleFileUpload(r._id, e.target.files?.[0])}
+                    />
+                  </label>
+                </div>
               </div>
             ))}
           </div>

@@ -3,7 +3,6 @@ const PatientProfile = require("../models/PatientProfile");
 const DoctorProfile = require("../models/DoctorProfile");
 const Appointment = require("../models/Appointment");
 
-// GET /api/records/mine — patient sees only their own records
 async function getMyRecords(req, res) {
   try {
     const patientProfile = await PatientProfile.findOne({ user: req.user._id });
@@ -19,7 +18,6 @@ async function getMyRecords(req, res) {
   }
 }
 
-// POST /api/records — doctor creates a record tied to one of their appointments
 async function createRecord(req, res) {
   try {
     const { appointmentId, diagnosis, prescription, notes } = req.body;
@@ -54,7 +52,6 @@ async function createRecord(req, res) {
   }
 }
 
-// GET /api/records/by-doctor — records the logged-in doctor has written
 async function getRecordsByDoctor(req, res) {
   try {
     const doctorProfile = await DoctorProfile.findOne({ user: req.user._id });
@@ -70,4 +67,30 @@ async function getRecordsByDoctor(req, res) {
   }
 }
 
-module.exports = { getMyRecords, createRecord, getRecordsByDoctor };
+// POST /api/records/:id/attachments — doctor adds a file to an existing record
+async function addAttachment(req, res) {
+  try {
+    if (!req.file) return res.status(400).json({ message: "No file uploaded" });
+
+    const doctorProfile = await DoctorProfile.findOne({ user: req.user._id });
+    if (!doctorProfile) return res.status(404).json({ message: "Doctor profile not found" });
+
+    const record = await MedicalRecord.findById(req.params.id);
+    if (!record) return res.status(404).json({ message: "Record not found" });
+    if (String(record.doctor) !== String(doctorProfile._id)) {
+      return res.status(403).json({ message: "This record does not belong to you" });
+    }
+
+    record.attachments.push({
+      url: req.file.path,
+      filename: req.file.originalname,
+    });
+    await record.save();
+
+    res.json({ record });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+}
+
+module.exports = { getMyRecords, createRecord, getRecordsByDoctor, addAttachment };

@@ -1,5 +1,6 @@
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
+import Footer from "@/components/Footer";
 
 export const metadata = {
   title: "HMS - Hospital Management System",
@@ -13,7 +14,10 @@ export default function RootLayout({ children }) {
         <meta name="color-scheme" content="light" />
       </head>
       <body>
-        <AuthProvider>{children}</AuthProvider>
+        <AuthProvider>
+          {children}
+          <Footer />
+        </AuthProvider>
       </body>
     </html>
   );

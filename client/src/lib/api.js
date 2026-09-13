@@ -52,6 +52,8 @@ export const api = {
   myRecords: (token) => request("/records/mine", { token }),
   createRecord: (payload, token) => request("/records", { method: "POST", body: payload, token }),
   recordsByDoctor: (token) => request("/records/by-doctor", { token }),
+    addRecordAttachment: (recordId, formData, token) =>
+    request(`/records/${recordId}/attachments`, { method: "POST", body: formData, token, isFormData: true }),
 
   adminCreateUser: (payload, token) =>
     request("/admin/users", { method: "POST", body: payload, token }),

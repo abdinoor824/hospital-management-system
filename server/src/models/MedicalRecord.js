@@ -1,5 +1,14 @@
 const mongoose = require("mongoose");
 
+const attachmentSchema = new mongoose.Schema(
+  {
+    url: { type: String, required: true },
+    filename: { type: String, required: true },
+    uploadedAt: { type: Date, default: Date.now },
+  },
+  { _id: false }
+);
+
 const medicalRecordSchema = new mongoose.Schema(
   {
     patient: { type: mongoose.Schema.Types.ObjectId, ref: "PatientProfile", required: true },
@@ -8,6 +17,7 @@ const medicalRecordSchema = new mongoose.Schema(
     diagnosis: { type: String, trim: true },
     prescription: { type: String, trim: true },
     notes: { type: String, trim: true },
+    attachments: [attachmentSchema],
   },
   { timestamps: true }
 );
