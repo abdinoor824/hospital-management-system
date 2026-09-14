@@ -43,10 +43,14 @@ export default function ProfilePage() {
       .finally(() => setAvailLoading(false));
   }, [user, token]);
 
-  if (loading) return <div className="min-h-screen grid place-items-center text-slate-400 text-sm">Loading...</div>;
-  if (!user) {
-    router.replace("/login");
-    return null;
+     useEffect(() => {
+    if (!loading && !user) {
+      router.replace("/login");
+    }
+  }, [loading, user, router]);
+
+  if (loading || !user) {
+    return <div className="min-h-screen grid place-items-center text-slate-400 text-sm">Loading...</div>;
   }
 
   async function handlePhotoChange(e) {
