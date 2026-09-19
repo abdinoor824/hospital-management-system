@@ -7,11 +7,17 @@ import { api, getImageUrl } from "@/lib/api";
 const FILTERS = ["All", "Available Today", "Lowest Fee", "Most Experienced", "Top Rated"];
 const TODAY_ABBR = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][new Date().getDay()];
 
-// Deterministic pseudo-rating/experience so cards look varied but stay consistent per doctor.
 function pseudoStat(id, min, max) {
   const hash = String(id).split("").reduce((acc, ch) => acc + ch.charCodeAt(0), 0);
   return min + (hash % (max - min + 1));
 }
+
+const VALUE_PROPS = [
+  { icon: "🩺", title: "Verified Doctors", desc: "Every doctor's profile, specialty, and schedule is managed and confirmed by our admin team." },
+  { icon: "💳", title: "Flexible Payments", desc: "Pay by card, M-Pesa, or cash — whatever's easiest for you." },
+  { icon: "📁", title: "Digital Records", desc: "Your diagnosis, prescriptions, and lab files, always accessible from your account." },
+  { icon: "⚡", title: "Fast Booking", desc: "Find a doctor and book an appointment in under a minute." },
+];
 
 export default function HomePage() {
   const { user } = useAuth();
@@ -30,7 +36,10 @@ export default function HomePage() {
       .finally(() => setLoading(false));
   }, []);
 
-  // Attach consistent computed stats to each doctor once
+  const specialtyCount = useMemo(() => {
+    return new Set(doctors.map((d) => d.specialization).filter(Boolean)).size;
+  }, [doctors]);
+
   const withStats = useMemo(() => {
     return doctors.map((d) => ({
       ...d,
@@ -43,7 +52,6 @@ export default function HomePage() {
   const filtered = useMemo(() => {
     let list = withStats;
 
-    // Real text search by name or specialty
     const q = search.trim().toLowerCase();
     if (q) {
       list = list.filter(
@@ -53,7 +61,6 @@ export default function HomePage() {
       );
     }
 
-    // Filter chips
     if (activeFilter === "Available Today") {
       list = list.filter((d) => d._availableToday);
     } else if (activeFilter === "Lowest Fee") {
@@ -94,12 +101,8 @@ export default function HomePage() {
           <a href="/" className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-indigo-600 text-white text-[18px]">
             ⚕
           </a>
-          
           <nav className="hidden md:flex items-center gap-1.5">
-            <a
-              href={dashboardHref()}
-              className="text-[13.5px] font-medium text-slate-500 hover:text-slate-900 px-3 py-2 rounded-full"
-            >
+            <a href={dashboardHref()} className="text-[13.5px] font-medium text-slate-500 hover:text-slate-900 px-3 py-2 rounded-full">
               Overview
             </a>
             <span className="text-[13.5px] font-semibold bg-indigo-600 text-white px-4 py-2 rounded-full flex items-center gap-1.5">
@@ -116,19 +119,6 @@ export default function HomePage() {
               </>
             )}
           </nav>
-        </div>
-
-        <div className="hidden lg:flex flex-1 max-w-xs">
-          <div className="relative w-full">
-            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 text-[14px]">🔍</span>
-            <input
-              type="text"
-              placeholder="Search"
-              className="w-full rounded-full border border-slate-200 bg-slate-50 py-2 pl-9 pr-4 text-[13.5px] outline-none focus:border-indigo-400"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-            />
-          </div>
         </div>
 
         <div className="flex items-center gap-2.5 shrink-0">
@@ -154,10 +144,73 @@ export default function HomePage() {
         </div>
       </header>
 
-      <main className="px-6 py-8 lg:px-10">
+      {/* Hero */}
+      <section className="relative overflow-hidden bg-gradient-to-br from-indigo-600 via-indigo-600 to-blue-700 px-6 py-14 lg:px-10 lg:py-20">
+        <div className="pointer-events-none absolute -right-16 -top-24 h-72 w-72 rounded-full bg-white/10" />
+        <div className="pointer-events-none absolute -left-10 bottom-[-80px] h-56 w-56 rounded-full bg-white/10" />
+
+        <div className="relative max-w-2xl animate-fade-up">
+          <span className="inline-block text-[12.5px] font-semibold bg-white/15 text-white px-3 py-1.5 rounded-full mb-4">
+            ⚕ Trusted Care, Made Simple
+          </span>
+          <h1 className="text-[34px] sm:text-[44px] font-bold text-white leading-tight">
+            Find the right doctor, book in minutes.
+          </h1>
+          <p className="mt-4 text-[15.5px] text-indigo-100 leading-relaxed max-w-lg">
+            Browse verified doctors by specialty, check real-time availability, and pay however works for you — card, M-Pesa, or cash.
+          </p>
+          <div className="mt-7 flex gap-3 flex-wrap">
+            <a
+              href="#doctors"
+              className="bg-white text-indigo-700 rounded-full px-6 py-3 text-[14px] font-semibold shadow-lg"
+            >
+              Browse Doctors
+            </a>
+            {!user && (
+              <a
+                href="/register"
+                className="bg-white/10 border border-white/30 text-white rounded-full px-6 py-3 text-[14px] font-semibold hover:bg-white/20 transition-colors"
+              >
+                Create an Account
+              </a>
+            )}
+          </div>
+        </div>
+      </section>
+
+      {/* Value props */}
+      <section className="px-6 py-10 lg:px-10 max-w-6xl mx-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {VALUE_PROPS.map((v, i) => (
+            <div
+              key={v.title}
+              className="animate-fade-up bg-white rounded-[20px] border border-slate-100 p-5"
+              style={{ animationDelay: `${i * 80}ms` }}
+            >
+              <div className="text-[26px] mb-2">{v.icon}</div>
+              <p className="text-[14px] font-semibold text-slate-900">{v.title}</p>
+              <p className="text-[12.5px] text-slate-500 mt-1 leading-relaxed">{v.desc}</p>
+            </div>
+          ))}
+        </div>
+
+        {!loading && doctors.length > 0 && (
+          <div className="mt-4 flex items-center gap-2 text-[13px] text-slate-500">
+            <span className="font-semibold text-indigo-600">{doctors.length}</span> doctor{doctors.length !== 1 ? "s" : ""} available
+            {specialtyCount > 0 && (
+              <>
+                <span>·</span>
+                <span className="font-semibold text-indigo-600">{specialtyCount}</span> specialt{specialtyCount !== 1 ? "ies" : "y"}
+              </>
+            )}
+          </div>
+        )}
+      </section>
+
+      <main id="doctors" className="px-6 py-4 lg:px-10 max-w-6xl mx-auto">
         <div className="flex items-start justify-between gap-6 flex-wrap mb-6">
           <div className="max-w-lg">
-            <h1 className="text-[30px] sm:text-[34px] font-bold text-slate-900 leading-tight">Find Your Doctor</h1>
+            <h2 className="text-[26px] font-bold text-slate-900 leading-tight">Find Your Doctor</h2>
             <p className="mt-2 text-[14.5px] text-slate-500">
               Search by name, specialty, or location — we'll help you find the right care.
             </p>
@@ -196,14 +249,28 @@ export default function HomePage() {
         {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
 
         {loading ? (
-          <p className="text-slate-400 text-sm">Loading doctors...</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="bg-white rounded-[24px] border border-slate-100 overflow-hidden animate-pulse">
+                <div className="h-40 bg-slate-100" />
+                <div className="p-4 space-y-2">
+                  <div className="h-4 bg-slate-100 rounded w-3/4" />
+                  <div className="h-3 bg-slate-100 rounded w-1/2" />
+                  <div className="h-8 bg-slate-100 rounded mt-4" />
+                </div>
+              </div>
+            ))}
+          </div>
         ) : filtered.length === 0 ? (
           <p className="text-slate-400 text-sm">No doctors found{activeFilter !== "All" ? ` for "${activeFilter}"` : ""}.</p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5">
-            {filtered.map((d) => (
-              
-                          <div key={d._id} className="bg-white rounded-[24px] border border-slate-100 overflow-hidden flex flex-col shadow-sm">
+            {filtered.map((d, i) => (
+              <div
+                key={d._id}
+                className="animate-fade-up bg-white rounded-[24px] border border-slate-100 overflow-hidden flex flex-col shadow-sm hover:shadow-md transition-shadow"
+                style={{ animationDelay: `${Math.min(i, 8) * 60}ms` }}
+              >
                 <a href={`/doctors/${d._id}`} className="block">
                   <div className="relative h-40 bg-slate-100">
                     {d.user?.profilePicture ? (
@@ -257,7 +324,7 @@ export default function HomePage() {
                     </button>
                   </div>
                 </div>
-              </div> 
+              </div>
             ))}
           </div>
         )}
