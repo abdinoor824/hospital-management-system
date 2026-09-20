@@ -1,10 +1,10 @@
 const Stripe = require("stripe");
 const Appointment = require("../models/Appointment");
 const Payment = require("../models/Payment");
+const { sendPaymentReceivedEmail } = require("../utils/mailer");
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
-// POST /api/payments/stripe/create-checkout-session
 async function createCheckoutSession(req, res) {
   try {
     const { appointmentId, amount } = req.body;
@@ -25,7 +25,7 @@ async function createCheckoutSession(req, res) {
           price_data: {
             currency: "kes",
             product_data: { name: "Doctor consultation fee" },
-            unit_amount: Math.round(Number(amount) * 100), // Stripe uses smallest currency unit
+            unit_amount: Math.round(Number(amount) * 100),
           },
           quantity: 1,
         },
@@ -41,7 +41,6 @@ async function createCheckoutSession(req, res) {
   }
 }
 
-// GET /api/payments/stripe/verify/:sessionId
 async function verifyCheckoutSession(req, res) {
   try {
     const session = await stripe.checkout.sessions.retrieve(req.params.sessionId);
@@ -53,6 +52,8 @@ async function verifyCheckoutSession(req, res) {
     const { appointmentId, patientId } = session.metadata;
 
     let payment = await Payment.findOne({ appointment: appointmentId, reference: session.id });
+    let isNewPayment = false;
+
     if (!payment) {
       payment = await Payment.create({
         appointment: appointmentId,
@@ -63,6 +64,23 @@ async function verifyCheckoutSession(req, res) {
         reference: session.id,
         paidAt: new Date(),
       });
+      isNewPayment = true;
+    }
+
+    if (isNewPayment) {
+      const populated = await Appointment.findById(appointmentId)
+        .populate({ path: "patient", populate: { path: "user", select: "name email" } })
+        .populate({ path: "doctor", populate: { path: "user", select: "name" } });
+
+      if (populated?.patient?.user?.email) {
+        sendPaymentReceivedEmail({
+          patientEmail: populated.patient.user.email,
+          patientName: populated.patient.user.name,
+          amount: payment.amount,
+          method: "card",
+          doctorName: populated.doctor?.user?.name || "your doctor",
+        });
+      }
     }
 
     res.json({ payment });

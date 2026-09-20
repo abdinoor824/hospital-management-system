@@ -1,6 +1,8 @@
 const Appointment = require("../models/Appointment");
 const PatientProfile = require("../models/PatientProfile");
 const DoctorProfile = require("../models/DoctorProfile");
+const Payment = require("../models/Payment");
+const { sendBookingNotificationToDoctor, sendAppointmentConfirmedEmail } = require("../utils/mailer");
 
 async function createAppointment(req, res) {
   try {
@@ -12,7 +14,7 @@ async function createAppointment(req, res) {
     const patientProfile = await PatientProfile.findOne({ user: req.user._id });
     if (!patientProfile) return res.status(404).json({ message: "Patient profile not found" });
 
-    const doctor = await DoctorProfile.findById(doctorId);
+    const doctor = await DoctorProfile.findById(doctorId).populate("user", "name email");
     if (!doctor) return res.status(404).json({ message: "Doctor not found" });
 
     const appointment = await Appointment.create({
@@ -22,6 +24,17 @@ async function createAppointment(req, res) {
       time,
       reason,
     });
+
+    if (doctor.user?.email) {
+      sendBookingNotificationToDoctor({
+        doctorEmail: doctor.user.email,
+        doctorName: doctor.user.name,
+        patientName: req.user.name,
+        date,
+        time,
+        reason,
+      });
+    }
 
     res.status(201).json({ appointment });
   } catch (err) {
@@ -66,7 +79,6 @@ async function updateAppointmentStatus(req, res) {
     if (!appointment) return res.status(404).json({ message: "Appointment not found" });
 
     if (status === "confirmed") {
-      const Payment = require("../models/Payment");
       const payment = await Payment.findOne({ appointment: appointment._id, status: "paid" });
       if (!payment) {
         return res.status(400).json({ message: "Cannot confirm: patient has not paid for this appointment yet" });
@@ -76,13 +88,28 @@ async function updateAppointmentStatus(req, res) {
     appointment.status = status;
     await appointment.save();
 
+    if (status === "confirmed") {
+      const populated = await Appointment.findById(appointment._id)
+        .populate({ path: "doctor", populate: { path: "user", select: "name" } })
+        .populate({ path: "patient", populate: { path: "user", select: "name email" } });
+
+      if (populated.patient?.user?.email) {
+        sendAppointmentConfirmedEmail({
+          patientEmail: populated.patient.user.email,
+          patientName: populated.patient.user.name,
+          doctorName: populated.doctor?.user?.name || "your doctor",
+          date: populated.date,
+          time: populated.time,
+        });
+      }
+    }
+
     res.json({ appointment });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 }
 
-// PATCH /api/appointments/:id/cancel — patient cancels their own pending appointment
 async function cancelMyAppointment(req, res) {
   try {
     const patientProfile = await PatientProfile.findOne({ user: req.user._id });
@@ -107,7 +134,6 @@ async function cancelMyAppointment(req, res) {
   }
 }
 
-// PATCH /api/appointments/:id/reschedule — patient edits date/time/reason while still pending
 async function rescheduleMyAppointment(req, res) {
   try {
     const { date, time, reason } = req.body;

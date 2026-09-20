@@ -1,8 +1,8 @@
 const Payment = require("../models/Payment");
 const Appointment = require("../models/Appointment");
 const DoctorProfile = require("../models/DoctorProfile");
+const { sendPaymentReceivedEmail } = require("../utils/mailer");
 
-// POST /api/payments/cash — doctor records a cash payment for a walk-in appointment
 async function recordCashPayment(req, res) {
   try {
     const { appointmentId, amount } = req.body;
@@ -29,13 +29,25 @@ async function recordCashPayment(req, res) {
       paidAt: new Date(),
     });
 
+    const populated = await Appointment.findById(appointment._id)
+      .populate({ path: "patient", populate: { path: "user", select: "name email" } });
+
+    if (populated.patient?.user?.email) {
+      sendPaymentReceivedEmail({
+        patientEmail: populated.patient.user.email,
+        patientName: populated.patient.user.name,
+        amount,
+        method: "cash",
+        doctorName: req.user.name,
+      });
+    }
+
     res.status(201).json({ payment });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 }
 
-// GET /api/payments/for-appointment/:appointmentId — check if an appointment is paid
 async function getPaymentForAppointment(req, res) {
   try {
     const payment = await Payment.findOne({ appointment: req.params.appointmentId }).sort({ createdAt: -1 });

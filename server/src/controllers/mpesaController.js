@@ -1,5 +1,6 @@
 const Payment = require("../models/Payment");
 const Appointment = require("../models/Appointment");
+const { sendPaymentReceivedEmail } = require("../utils/mailer");
 
 const BASE_URL = "https://sandbox.safaricom.co.ke"; // swap to https://api.safaricom.co.ke when going live
 
@@ -30,7 +31,6 @@ async function getAccessToken() {
   return data.access_token;
 }
 
-// POST /api/payments/mpesa/stkpush — patient triggers a payment prompt on their phone
 async function initiateStkPush(req, res) {
   try {
     const { appointmentId, phone, amount } = req.body;
@@ -41,7 +41,6 @@ async function initiateStkPush(req, res) {
     const appointment = await Appointment.findById(appointmentId);
     if (!appointment) return res.status(404).json({ message: "Appointment not found" });
 
-    // Normalize phone to 2547XXXXXXXX format
     let normalizedPhone = phone.trim().replace(/\D/g, "");
     if (normalizedPhone.startsWith("0")) normalizedPhone = "254" + normalizedPhone.slice(1);
     if (normalizedPhone.startsWith("7") || normalizedPhone.startsWith("1")) normalizedPhone = "254" + normalizedPhone;
@@ -79,7 +78,6 @@ async function initiateStkPush(req, res) {
       return res.status(400).json({ message: stkData.errorMessage || "STK push failed" });
     }
 
-    // Save a pending payment, referenced by CheckoutRequestID so the callback can find it later
     await Payment.create({
       appointment: appointment._id,
       patient: appointment.patient,
@@ -95,33 +93,47 @@ async function initiateStkPush(req, res) {
   }
 }
 
-// POST /api/payments/mpesa/callback — Safaricom calls this automatically, no auth
 async function mpesaCallback(req, res) {
   try {
     const callback = req.body?.Body?.stkCallback;
     if (!callback) return res.status(200).json({ message: "No callback data" });
-  console.log("M-PESA CALLBACK RECEIVED:", JSON.stringify(callback, null, 2));
+
+    console.log("M-PESA CALLBACK RECEIVED:", JSON.stringify(callback, null, 2));
+
     const { CheckoutRequestID, ResultCode } = callback;
-      
     const payment = await Payment.findOne({ reference: CheckoutRequestID });
     if (!payment) return res.status(200).json({ message: "Payment record not found" });
 
     if (ResultCode === 0) {
       payment.status = "paid";
       payment.paidAt = new Date();
+      await payment.save();
+
+      const populated = await Appointment.findById(payment.appointment)
+        .populate({ path: "patient", populate: { path: "user", select: "name email" } })
+        .populate({ path: "doctor", populate: { path: "user", select: "name" } });
+
+      if (populated?.patient?.user?.email) {
+        sendPaymentReceivedEmail({
+          patientEmail: populated.patient.user.email,
+          patientName: populated.patient.user.name,
+          amount: payment.amount,
+          method: "mpesa",
+          doctorName: populated.doctor?.user?.name || "your doctor",
+        });
+      }
     } else {
       payment.status = "failed";
+      await payment.save();
     }
-    await payment.save();
 
     res.status(200).json({ message: "Callback processed" });
   } catch (err) {
     console.error("M-Pesa callback error:", err.message);
-    res.status(200).json({ message: "Error logged" }); // always 200 so Safaricom doesn't retry endlessly
+    res.status(200).json({ message: "Error logged" });
   }
 }
 
-// GET /api/payments/mpesa/status/:checkoutRequestId — frontend polls this while waiting
 async function getStkStatus(req, res) {
   try {
     const payment = await Payment.findOne({ reference: req.params.checkoutRequestId });
